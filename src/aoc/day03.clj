@@ -12,16 +12,14 @@
   [[x1 y1] [x2 y2]]
   (list (+ x1 x2) (+ y1 y2)))
 
+(defn mul-coords
+  [[x y] v]
+  (list (* x v) (* y v)))
+
 (defn wire-line
-  "List of coordinates for one part of a wire"
-  [start-coordinates direction distance]
-  (let [dir-delta (direction dirs)]
-    (loop [coords (list start-coordinates)
-           i 0]
-      (if (>= i distance)
-        coords
-        (recur (conj coords (add-coords (first coords) dir-delta))
-               (+ i 1))))))
+  [start direction distance]
+  (for [i (range distance -1 -1)]
+    (add-coords start (mul-coords (direction dirs) i))))
 
 (defn wire-coordinates
   "List of all coordinates for a wire"
