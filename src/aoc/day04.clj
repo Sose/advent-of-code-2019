@@ -2,7 +2,8 @@
 
 (def all-nums (range 156218 652528)) ;; puzzle input is 156218-652527
 
-(defn digits [number] (map #(Character/digit % 10) (str number)))
+;;(defn digits [number] (map #(Character/digit % 10) (str number)))
+(defn digits [number] (seq (str number)))
 
 (defn check-never-decrease
   [digits]
@@ -43,6 +44,5 @@
 
 (defn main
   []
-  (println "This takes around 40 seconds for both parts..")
   (println (time (str "P1: " (problem1))))
   (println (time (str "P2: " (problem2)))))
