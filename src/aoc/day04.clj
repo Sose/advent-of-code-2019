@@ -4,50 +4,39 @@
 
 (defn digits [number] (map #(Character/digit % 10) (str number)))
 
-(defn check-password
+(defn check-never-decrease
   [digits]
-  (if-not (= (count digits) 6)
-    false
-    (loop [prev (first digits)
-           [cur & tail] (rest digits)
-           found-2-same false]
-      (cond
-        (nil? cur) found-2-same
-        (> prev cur) false
-        :else (recur cur tail (or found-2-same (= prev cur)))))))
+  (= digits (sort digits)))
+
+(defn check-two-adjacent-same
+  [digits]
+  (->> digits
+       (partition-by identity)
+       (map count)
+       (some #(>= % 2))))
 
 (defn problem1
   []
   (->> all-nums
        (map digits)
-       (filter check-password)
+       (filter #(and (check-never-decrease %) (check-two-adjacent-same %)))
        (count)))
 
 ;; --------- Part 2 ------------
 
-(defn check-password-2
+(defn check-two-adjacent-same-2
+  "Checks if two adjacents digits are the same and not part of a larger group"
   [digits]
-  (if-not (= (count digits) 6)
-    false
-    (loop [prev (first digits)
-           [cur & tail] (rest digits)
-           found-2-same false
-           n-same 1]
-      (let [is-same (= prev cur)]
-        (cond
-          (nil? cur) (or found-2-same (= n-same 2))
-          (> prev cur) false
-          :else (recur cur
-                       tail
-                       (if is-same found-2-same (or found-2-same (= n-same 2)))
-                       (if is-same (+ n-same 1) 1)))))))
-
+  (->> digits
+       (partition-by identity)
+       (map count)
+       (some #(= % 2))))
 
 (defn problem2
   []
   (->> all-nums
        (map digits)
-       (filter check-password-2)
+       (filter #(and (check-never-decrease %) (check-two-adjacent-same-2 %)))
        (count)))
 
 ;; Main
