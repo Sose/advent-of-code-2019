@@ -179,7 +179,7 @@
   (let [outputs (:outputs (run-computer computer [5]))]
     (last outputs)))
 
-;;(defn main
-;;  []
-;;  (println "P1:" (part1))
-;;  (println "P2:" (part2)))
+(defn main
+  []
+  (println "P1:" (part1))
+  (println "P2:" (part2)))
