@@ -62,4 +62,6 @@
 
 (defn main
   []
-  (println "P1:" (part1)))
+  (println "P1:" (part1))
+  (println "P2:")
+  (part2))
