@@ -17,4 +17,15 @@
        (mapv #(mod % 10))
        rseq))
 
+(defn right-pad
+  "Right-pads a coll until len items, with elem.
+  Returns len items."
+  [coll len elem]
+  (take len (concat coll (repeat elem))))
 
+(defn left-pad
+  "Left-pads a coll until len items, with elem.
+  If len <= (count coll), just returns coll."
+  [coll len elem]
+  (concat (repeat (- len (count coll)) elem)
+          coll))

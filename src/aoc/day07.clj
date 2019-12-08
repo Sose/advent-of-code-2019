@@ -41,23 +41,10 @@
     1 value
     (str "Error in param-value! mode was: " param-mode)))
 
-(defn right-pad
-  "Right-pads a coll until len items, with elem.
-  Returns len items."
-  [coll len elem]
-  (take len (concat coll (repeat elem))))
-
-(defn left-pad
-  "Left-pads a coll until len items, with elem.
-  If len <= (count coll), just returns coll."
-  [coll len elem]
-  (concat (repeat (- len (count coll)) elem)
-          coll))
-
 (defn parse-opcode
   "Returns [opcode, modes]"
   [code]
-  (let [[a b c d e] (left-pad (core/digits code) 5 0)]
+  (let [[a b c d e] (core/left-pad (core/digits code) 5 0)]
     [(+ e (* d 10)) ;;opcode
      [c b a]]))     ;;modes
 
@@ -187,23 +174,25 @@
     ;;(println computer)
     (instr computer modes)))
 
+(defn run-computer-until
+  "Runs a computer until (test-fn computer) is true"
+  [computer test-fn]
+  (loop [c computer]
+    (if (test-fn c)
+      c
+      (recur (step-computer c)))))
+
 (defn run-computer
   "Runs a computer until it halts by setting :halt"
   ([computer]
-   (loop [c computer]
-     (if (:halt c)
-       c
-       (recur (step-computer c)))))
+   (run-computer-until computer :halt))
   ([computer inputs]
    (run-computer (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
 
 (defn run-computer-until-output
   "Runs a computer until it halts or an output is ready"
   ([computer]
-   (loop [c computer]
-     (if (or (:halt c) (-> c :outputs not-empty))
-       c
-       (recur (step-computer c)))))
+   (run-computer-until computer #(or (:halt %) (-> % :outputs not-empty))))
   ([computer inputs]
    (run-computer-until-output (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
 
