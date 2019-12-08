@@ -3,9 +3,6 @@
             [clojure.string :as s]))
 
 (def input-state (apply vector (map read-string (s/split (core/input-for 07) #","))))
-;;(def input-state [3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0])
-;;(def input-state [3,23,3,24,1002,24,10,24,1002,23,-1,23,
-;;                  101,5,23,23,1,24,23,23,4,23,99,0,0])
 
 ;; (def input-state [3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,
 ;;                   -5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,
@@ -13,7 +10,6 @@
 
 ;;(def input-state [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,
 ;;                  27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5])
-
 
 (def computer
   {:memory input-state
@@ -66,6 +62,25 @@
     [(+ e (* d 10)) ;;opcode
      [c b a]]))     ;;modes
 
+(defn all-phase-settings
+  "All possible phase settings. Each integer can only appear once in settings"
+  [from to]
+  (for [a (range from to)
+        b (range from to)
+        c (range from to)
+        d (range from to)
+        e (range from to)
+        :when (= 5 (count (into #{} [a b c d e])))]
+    [a,b,c,d,e]))
+
+(defn make-amp
+  [computer phase-setting]
+  (assoc computer :inputs [phase-setting]))
+
+(defn clear-output
+  [computer]
+  (assoc computer :outputs []))
+
 ;; Instructions / operations
 
 (defn binary-instr
@@ -88,15 +103,17 @@
   (binary-instr computer modes *))
 
 (defn instr-input
+  "Consumes one input and writes it to out-addr"
   [{:keys [memory ip inputs] :as computer} modes]
   (let [out-addr (first (read-values computer 1))
         input-val (first inputs)]
-    (-> computer 
+    (-> computer
         (update-memory out-addr input-val)
         (update :inputs next)
         (advance-ip 2))))
 
 (defn instr-output
+  "Appends one output"
   [{:keys [memory ip outputs] :as computer} [mode]]
   (let [out-val (param-value memory mode (first (read-values computer 1)))]
     (-> computer
@@ -169,6 +186,7 @@
     (instr computer modes)))
 
 (defn run-computer
+  "Runs a computer until it halts by setting :halt"
   ([computer]
    (loop [c computer]
      (if (:halt c)
@@ -178,7 +196,7 @@
    (run-computer (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
 
 (defn run-computer-until-output
-  "Helper for day 7 part2... Executes until halt or an output is ready"
+  "Runs a computer until it halts or an output is ready"
   ([computer]
    (loop [c computer]
      (if (or (:halt c) (-> c :outputs not-empty))
@@ -187,43 +205,10 @@
   ([computer inputs]
    (run-computer-until-output (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
 
-(defn run-with-phase-settings
-  [phase-settings]
-  (loop [phase-settings phase-settings
-         output 0]
-    (if (empty? phase-settings)
-      output
-      (recur (rest phase-settings)
-             (-> (run-computer-until-output computer [(first phase-settings), output])
-                 :outputs
-                 last)))))
-
-(defn all-phase-settings
-  [from to]
-  (for [a (range from to)
-        b (range from to)
-        c (range from to)
-        d (range from to)
-        e (range from to)
-        :when (= 5 (count (into #{} [a b c d e])))]
-    [a,b,c,d,e]))
-
-(defn part1
-  []
-  (->> (all-phase-settings 0 5)
-       (map run-with-phase-settings)
-       (apply max)))
-
-;; Part 2
-
-(defn make-amp
-  [computer phase-setting]
-  (assoc computer :inputs [phase-setting]))
-
 (defn run-amps-once
   "Takes a list of computers and list of inputs to the first computer as arguments.
-  Runs computers until output, passes the output as input to the next computer.
-  Repeats until all computers have ran, returns new computer states"
+  Runs first computer until it outputs something, and passes it as input to the next computer.
+  Repeats until all computers have ran, returns new computer states."
   [computers a-input]
   (loop [new-amps [(run-computer-until-output (first computers) a-input)]
          computers (rest computers)]
@@ -234,11 +219,9 @@
         (recur (conj new-amps new-c)
                (rest computers))))))
 
-(defn clear-output
-  [computer]
-  (assoc computer :outputs []))
-
 (defn run-amps-feedback
+  "Takes a list of amplifier settings as input.
+  Runs computers as amplifiers until they halt, returns the last output from last amplifier."
   [amp-settings]
   (loop [computers (map make-amp (repeat computer) amp-settings)
          a-input [0]
@@ -251,6 +234,18 @@
                new-a-input
                (concat outputs new-a-input))))))
 
+;; Part 1
+
+(defn part1
+  []
+  (->> (all-phase-settings 0 5)
+       (map #(map make-amp (repeat computer) %))
+       (map #(run-amps-once % [0]))
+       (map #(last (:outputs (last %))))
+       (apply max)))
+
+;; Part 2
+
 (defn part2
   []
   (->> (all-phase-settings 5 10)
@@ -259,5 +254,5 @@
 
 (defn main
   []
-  (println "P1:" (part1))
-  (println "P2:" (part2)))
+  (println "P1:" (time (part1)))
+  (println "P2:" (time (part2))))
