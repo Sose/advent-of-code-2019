@@ -187,7 +187,7 @@
   "Runs a computer until (test-fn computer) is true"
   [computer test-fn]
   (->> (iterate step-computer computer)
-       (drop-while (comp not test-fn))
+       (drop-while (complement test-fn))
        first))
 
 (defn run-computer
