@@ -58,16 +58,15 @@
 ;; -- Problem 2 --
 
 (defn path-distance
-  "Distance of walking along a path to a point"
-  [paths point]
-  (->> paths
-       (reverse) ;; need to reverse the list to start from (0,0)
-       (take-while #(not= point %))
-       (count)))
+  [coords point]
+  (->> coords
+       (drop-while #(not= point %))
+       (count)
+       (#(- % 1)))) ;; subtract 1 because of (0,0)
 
 (defn wire-distances
   [wire-coords intersections]
-  (map #(path-distance wire-coords %) intersections))
+  (map (partial path-distance wire-coords) intersections))
 
 (defn min-steps
   "Closest intersection by walking along the wires"
