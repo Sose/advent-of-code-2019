@@ -175,7 +175,7 @@
        c
        (recur (step-computer c)))))
   ([computer inputs]
-   (run-computer (assoc computer :inputs inputs))))
+   (run-computer (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
 
 (defn run-computer-until-output
   "Helper for day 7 part2... Executes until halt or an output is ready"
@@ -186,8 +186,6 @@
        (recur (step-computer c)))))
   ([computer inputs]
    (run-computer-until-output (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
-
-;; Main
 
 (defn run-with-phase-settings
   [phase-settings]
@@ -212,7 +210,9 @@
 
 (defn part1
   []
-  (apply max (map run-with-phase-settings (all-phase-settings 0 5))))
+  (->> (all-phase-settings 0 5)
+       (map run-with-phase-settings)
+       (apply max)))
 
 ;; Part 2
 
