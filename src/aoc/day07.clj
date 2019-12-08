@@ -174,13 +174,21 @@
     ;;(println computer)
     (instr computer modes)))
 
-(defn run-computer-until
+(defn run-computer-until-recur
+  ;; Unused.
   "Runs a computer until (test-fn computer) is true"
   [computer test-fn]
   (loop [c computer]
     (if (test-fn c)
       c
       (recur (step-computer c)))))
+
+(defn run-computer-until
+  "Runs a computer until (test-fn computer) is true"
+  [computer test-fn]
+  (->> (iterate step-computer computer)
+       (drop-while (comp not test-fn))
+       first))
 
 (defn run-computer
   "Runs a computer until it halts by setting :halt"
