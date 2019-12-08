@@ -49,7 +49,7 @@
   (doseq [pixel row]
     (case pixel
       0 (print " ")
-      1 (print "O")))
+      1 (print "*")))
   (println))
 
 (defn part2
@@ -62,6 +62,6 @@
 
 (defn main
   []
-  (println "P1:" (part1))
+  (println "P1:" (time (part1)))
   (println "P2:")
-  (part2))
+  (time (part2)))
