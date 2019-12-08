@@ -19,8 +19,6 @@
 
 ;; Helper functions
 
-(defn digits [number] (map #(Character/digit % 10) (str number)))
-
 (defn advance-ip
   "Advances instruction pointer by n, returns new computer state"
   [computer n]
@@ -44,21 +42,22 @@
     (str "Error in param-value! mode was: " param-mode)))
 
 (defn right-pad
+  "Right-pads a coll until len items, with elem.
+  Returns len items."
   [coll len elem]
   (take len (concat coll (repeat elem))))
 
 (defn left-pad
-  "The worst way ever to left-pad something"
+  "Left-pads a coll until len items, with elem.
+  If len <= (count coll), just returns coll."
   [coll len elem]
-  (-> coll
-      reverse
-      (right-pad len elem)
-      reverse))
+  (concat (repeat (- len (count coll)) elem)
+          coll))
 
 (defn parse-opcode
   "Returns [opcode, modes]"
   [code]
-  (let [[a b c d e] (left-pad (digits code) 5 0)]
+  (let [[a b c d e] (left-pad (core/digits code) 5 0)]
     [(+ e (* d 10)) ;;opcode
      [c b a]]))     ;;modes
 
