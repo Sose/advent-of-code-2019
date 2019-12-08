@@ -221,13 +221,18 @@
   (assoc computer :inputs [phase-setting]))
 
 (defn run-amps-once
-  [[ca cb cc cd ce] a-input]
-  (let [amp-a (run-computer-until-output ca a-input)
-        amp-b (run-computer-until-output cb (:outputs amp-a))
-        amp-c (run-computer-until-output cc (:outputs amp-b))
-        amp-d (run-computer-until-output cd (:outputs amp-c))
-        amp-e (run-computer-until-output ce (:outputs amp-d))]
-    [amp-a amp-b amp-c amp-d amp-e]))
+  "Takes a list of computers and list of inputs to the first computer as arguments.
+  Runs computers until output, passes the output as input to the next computer.
+  Repeats until all computers have ran, returns new computer states"
+  [computers a-input]
+  (loop [new-amps [(run-computer-until-output (first computers) a-input)]
+         computers (rest computers)]
+    (if (empty? computers)
+      new-amps
+      (let [input (-> new-amps last :outputs)
+            new-c (run-computer-until-output (first computers) input)]
+        (recur (conj new-amps new-c)
+               (rest computers))))))
 
 (defn clear-output
   [computer]
