@@ -61,6 +61,9 @@
     [(+ e (* d 10)) ;;opcode
      [c b a]]))     ;;modes
 
+;; just for fun
+(def parse-opcode-memoized (memoize parse-opcode))
+
 (defn all-phase-settings
   "All possible phase settings. Each integer can only appear once in settings"
   [from to]
@@ -179,7 +182,7 @@
 (defn step-computer
   "Execute one step, returning a new computer state as output"
   [{:keys [memory ip] :as computer}]
-  (let [[opcode modes] (parse-opcode (memory ip))
+  (let [[opcode modes] (parse-opcode-memoized (memory ip))
         instr (op->instr opcode)]
     ;;(println computer)
     (instr computer modes)))
