@@ -1,6 +1,5 @@
 (ns aoc.intcode
-  (:require [aoc.core :as core]
-            [clojure.string :as s]))
+  (:require [aoc.core :as core]))
 
 (defn make-memory
   [input n-empty]
@@ -112,7 +111,8 @@
 
 ;; helper for jump-if-true and jump-if-false
 (defn helper-jump-fn
-  "Jumps.. TODO: better doc"
+  "Reads a value to compare against from ip+1, and new ip from ip+2.
+  Jumps by setting ip to new ip if check against compare-value is true."
   [{:keys [memory ip outputs] :as computer} modes compare-fn]
   (let [[check-addr newip-addr] (read-values computer 2)
         check (read-memory-with-mode computer (nth modes 0) check-addr)
@@ -130,6 +130,8 @@
   (helper-jump-fn computer modes #(= 0 %)))
 
 (defn helper-compare-and-set-fn
+  "Reads two values to compare from ip+1 and ip+2.
+  Sets addr indicated by ip+3 to 0 or 1"
   [{:keys [memory ip outputs] :as computer} modes compare-fn]
   (let [[a-addr b-addr out-addr] (read-values computer 3)
         a (read-memory-with-mode computer (nth modes 0) a-addr)
