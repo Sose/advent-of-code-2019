@@ -6,7 +6,8 @@
             [aoc.day05]
             [aoc.day06]
             [aoc.day07]
-            [aoc.day08])
+            [aoc.day08]
+            [aoc.day09])
   (:gen-class))
 
 (defn -main
@@ -27,4 +28,6 @@
   (println "-- Day 7 --")
   (aoc.day07/main)
   (println "-- Day 8 --")
-  (aoc.day08/main))
+  (aoc.day08/main)
+  (println "-- Day 9 --")
+  (aoc.day09/main))
