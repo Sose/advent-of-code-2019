@@ -1,19 +1,21 @@
-(ns aoc.day07
+(ns aoc.day09
   (:require [aoc.core :as core]
             [clojure.string :as s]))
 
-(def input-state (apply vector (map read-string (s/split (core/input-for 07) #","))))
+(def input-program (apply vector (map read-string (s/split (core/input-for 9) #","))))
 
-;; (def input-state [3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,
-;;                   -5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,
-;;                   53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10])
+;;(def input-program [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99])
+;;(def input-program [1102,34915192,34915192,7,4,7,99,0])
+;;(def input-program [104,1125899906842624,99])
 
-;;(def input-state [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,
-;;                  27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5])
+(defn make-memory
+  [input n-empty]
+  (into [] (concat input (repeat n-empty 0))))
 
-(def computer
-  {:memory input-state
+(def initial-computer
+  {:memory (make-memory input-program 1000) ;; 1000 empty elems
    :ip 0 ;; instruction pointer
+   :rb 0 ;; relative base
    :inputs []
    :outputs []})
 
@@ -35,11 +37,19 @@
   (subvec memory (inc ip) (+ ip n 1)))
 
 (defn param-value
-  [memory param-mode value]
+  [{:keys [memory rb]} param-mode value]
   (case param-mode
-    0 (nth memory value)
-    1 value
+    0 (nth memory value)        ;; parameter mode
+    1 value                     ;; immediate mode
+    2 (nth memory (+ value rb)) ;; relative mode
     (str "Error in param-value! mode was: " param-mode)))
+
+(defn param-value-output
+  [{:keys [memory rb]} param-mode value]
+  (case param-mode
+    0 value
+    1 (str "ERROR!")
+    2 (+ value rb)))
 
 (defn parse-opcode
   "Returns [opcode, modes]"
@@ -51,20 +61,9 @@
 ;; just for fun
 (def parse-opcode-memoized (memoize parse-opcode))
 
-(defn all-phase-settings
-  "All possible phase settings. Each integer can only appear once in settings"
-  [from to]
-  (for [a (range from to)
-        b (range from to)
-        c (range from to)
-        d (range from to)
-        e (range from to)
-        :when (= 5 (count (into #{} [a b c d e])))]
-    [a,b,c,d,e]))
-
-(defn make-amp
-  [computer phase-setting]
-  (assoc computer :inputs [phase-setting]))
+(defn set-inputs
+  [computer inputs]
+  (assoc computer :inputs inputs))
 
 (defn clear-output
   [computer]
@@ -75,12 +74,13 @@
 (defn binary-instr
   "Starting from ip+1, reads 2 input addresses and 1 output address.
   Updates memory at output address and advances ip by 4."
-  [{:keys [memory ip] :as computer} modes func]
+  [{:keys [memory ip rb] :as computer} modes func]
   (let [[a-addr b-addr out-addr] (read-values computer 3)
-        a (param-value memory (nth modes 0) a-addr)
-        b (param-value memory (nth modes 1) b-addr)]
+        a (param-value computer (nth modes 0) a-addr)
+        b (param-value computer (nth modes 1) b-addr)
+        out (param-value-output computer (nth modes 2) out-addr)]
     (-> computer
-        (update-memory out-addr (func a b))
+        (update-memory out (func a b))
         (advance-ip 4))))
 
 (defn instr-add
@@ -95,16 +95,18 @@
   "Consumes one input and writes it to out-addr"
   [{:keys [memory ip inputs] :as computer} modes]
   (let [out-addr (first (read-values computer 1))
-        input-val (first inputs)]
+        input-val (first inputs)
+        out (param-value-output computer (nth modes 0) out-addr)]
     (-> computer
-        (update-memory out-addr input-val)
+        (update-memory out input-val)
         (update :inputs next)
         (advance-ip 2))))
 
 (defn instr-output
   "Appends one output"
-  [{:keys [memory ip outputs] :as computer} [mode]]
-  (let [out-val (param-value memory mode (first (read-values computer 1)))]
+  [{:keys [memory ip outputs] :as computer} modes]
+  (let [out-addr (first (read-values computer 1))
+        out-val (param-value computer (first modes) out-addr)]
     (-> computer
         (update :outputs conj out-val)
         (advance-ip 2))))
@@ -114,8 +116,8 @@
   "Jumps.. TODO: better doc"
   [{:keys [memory ip outputs] :as computer} modes compare-fn]
   (let [[check-addr newip-addr] (read-values computer 2)
-        check (param-value memory (nth modes 0) check-addr)
-        newip (param-value memory (nth modes 1) newip-addr)]
+        check (param-value computer (nth modes 0) check-addr)
+        newip (param-value computer (nth modes 1) newip-addr)]
     (if (compare-fn check)
       (-> computer (assoc :ip newip))
       (-> computer (advance-ip 3)))))
@@ -131,14 +133,15 @@
 (defn helper-compare-and-set-fn
   [{:keys [memory ip outputs] :as computer} modes compare-fn]
   (let [[a-addr b-addr out-addr] (read-values computer 3)
-        a (param-value memory (nth modes 0) a-addr)
-        b (param-value memory (nth modes 1) b-addr)]
+        a (param-value computer (nth modes 0) a-addr)
+        b (param-value computer (nth modes 1) b-addr)
+        out (param-value-output computer (nth modes 2) out-addr)]
     (if (compare-fn a b)
       (-> computer
-          (update-memory out-addr 1)
+          (update-memory out 1)
           (advance-ip 4))
       (-> computer
-          (update-memory out-addr 0)
+          (update-memory out 0)
           (advance-ip 4)))))
 
 (defn instr-less-than
@@ -148,6 +151,14 @@
 (defn instr-equals
   [computer modes]
   (helper-compare-and-set-fn computer modes =))
+
+(defn instr-add-relative-base
+  [computer modes]
+  (let [[a-addr] (read-values computer 1)
+        a (param-value computer (nth modes 0) a-addr)]
+    (-> computer
+        (update-in [:rb] + a)
+        (advance-ip 2))))
 
 (defn instr-halt
   [computer modes]
@@ -162,6 +173,7 @@
    6 instr-jump-if-false
    7 instr-less-than
    8 instr-equals
+   9 instr-add-relative-base
    99 instr-halt})
 
 ;; Running the computer
@@ -169,18 +181,9 @@
 (defn step-computer
   "Execute one step, returning a new computer state as output"
   [{:keys [memory ip] :as computer}]
-  (let [[opcode modes] (parse-opcode-memoized (memory ip))
+  (let [[opcode modes] (parse-opcode (nth memory ip))
         instr (op->instr opcode)]
     (instr computer modes)))
-
-(defn run-computer-until-recur
-  ;; Unused.
-  "Runs a computer until (test-fn computer) is true"
-  [computer test-fn]
-  (loop [c computer]
-    (if (test-fn c)
-      c
-      (recur (step-computer c)))))
 
 (defn run-computer-until
   "Runs a computer until (test-fn computer) is true"
@@ -236,19 +239,13 @@
 
 (defn part1
   []
-  (->> (all-phase-settings 0 5)
-       (map #(map make-amp (repeat computer) %))
-       (map #(run-amps-once % [0]))
-       (map #(last (:outputs (last %))))
-       (apply max)))
+  (run-computer (set-inputs initial-computer [1])))
 
 ;; Part 2
 
 (defn part2
   []
-  (->> (all-phase-settings 5 10)
-       (map run-amps-feedback)
-       (apply max)))
+  (run-computer (set-inputs initial-computer [2])))
 
 (defn main
   []
