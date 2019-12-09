@@ -2,11 +2,6 @@
   (:require [aoc.core :as core]
             [clojure.string :as s]))
 
-;;(def input-program [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99])
-;;(def input-program [1102,34915192,34915192,7,4,7,99,0])
-;;(def input-program [104,1125899906842624,99])
-;;(def input-program [109,2,203,-2,4,0,99])
-
 (defn make-memory
   [input n-empty]
   (into [] (concat input (repeat n-empty 0))))
@@ -63,8 +58,7 @@
     [(+ e (* d 10)) ;;opcode
      [c b a]]))     ;;modes
 
-;; just for fun (and speed)
-(def parse-opcode-memoized (memoize parse-opcode))
+(def parse-opcode-memoized (memoize parse-opcode)) ;; just for fun (and speed)
 
 (defn set-inputs
   [computer inputs]
