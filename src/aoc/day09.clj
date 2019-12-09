@@ -7,6 +7,7 @@
 ;;(def input-program [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99])
 ;;(def input-program [1102,34915192,34915192,7,4,7,99,0])
 ;;(def input-program [104,1125899906842624,99])
+;;(def input-program [109,2,203,-2,4,0,99])
 
 (defn make-memory
   [input n-empty]
@@ -36,20 +37,25 @@
   [{:keys [memory ip]} n]
   (subvec memory (inc ip) (+ ip n 1)))
 
-(defn param-value
+(defn read-memory-with-mode
+  "For modes parameter and relative modes, returns the value in the correct memory address.
+  For immediate mode, returns just the value"
   [{:keys [memory rb]} param-mode value]
   (case param-mode
     0 (nth memory value)        ;; parameter mode
     1 value                     ;; immediate mode
     2 (nth memory (+ value rb)) ;; relative mode
-    (str "Error in param-value! mode was: " param-mode)))
+    (str "Error in read-memory-with-mode! mode was: " param-mode)))
 
-(defn param-value-output
+(defn output-addr-with-mode
+  "This is meant to be used when getting memory addresses where to write
+  because they just need the memory ADDRESS, not the value at the memory address"
   [{:keys [memory rb]} param-mode value]
   (case param-mode
     0 value
-    1 (str "ERROR!")
-    2 (+ value rb)))
+    ;; immediate mode (mode 1) is not allowed! (could be self-replace?)
+    2 (+ value rb)
+    (str "Error in output-addr-with-mode: " param-mode)))
 
 (defn parse-opcode
   "Returns [opcode, modes]"
@@ -58,7 +64,7 @@
     [(+ e (* d 10)) ;;opcode
      [c b a]]))     ;;modes
 
-;; just for fun
+;; just for fun (and speed)
 (def parse-opcode-memoized (memoize parse-opcode))
 
 (defn set-inputs
@@ -76,9 +82,9 @@
   Updates memory at output address and advances ip by 4."
   [{:keys [memory ip rb] :as computer} modes func]
   (let [[a-addr b-addr out-addr] (read-values computer 3)
-        a (param-value computer (nth modes 0) a-addr)
-        b (param-value computer (nth modes 1) b-addr)
-        out (param-value-output computer (nth modes 2) out-addr)]
+        a (read-memory-with-mode computer (nth modes 0) a-addr)
+        b (read-memory-with-mode computer (nth modes 1) b-addr)
+        out (output-addr-with-mode computer (nth modes 2) out-addr)]
     (-> computer
         (update-memory out (func a b))
         (advance-ip 4))))
@@ -96,7 +102,7 @@
   [{:keys [memory ip inputs] :as computer} modes]
   (let [out-addr (first (read-values computer 1))
         input-val (first inputs)
-        out (param-value-output computer (nth modes 0) out-addr)]
+        out (output-addr-with-mode computer (nth modes 0) out-addr)]
     (-> computer
         (update-memory out input-val)
         (update :inputs next)
@@ -106,7 +112,7 @@
   "Appends one output"
   [{:keys [memory ip outputs] :as computer} modes]
   (let [out-addr (first (read-values computer 1))
-        out-val (param-value computer (first modes) out-addr)]
+        out-val (read-memory-with-mode computer (first modes) out-addr)]
     (-> computer
         (update :outputs conj out-val)
         (advance-ip 2))))
@@ -116,8 +122,8 @@
   "Jumps.. TODO: better doc"
   [{:keys [memory ip outputs] :as computer} modes compare-fn]
   (let [[check-addr newip-addr] (read-values computer 2)
-        check (param-value computer (nth modes 0) check-addr)
-        newip (param-value computer (nth modes 1) newip-addr)]
+        check (read-memory-with-mode computer (nth modes 0) check-addr)
+        newip (read-memory-with-mode computer (nth modes 1) newip-addr)]
     (if (compare-fn check)
       (-> computer (assoc :ip newip))
       (-> computer (advance-ip 3)))))
@@ -133,16 +139,13 @@
 (defn helper-compare-and-set-fn
   [{:keys [memory ip outputs] :as computer} modes compare-fn]
   (let [[a-addr b-addr out-addr] (read-values computer 3)
-        a (param-value computer (nth modes 0) a-addr)
-        b (param-value computer (nth modes 1) b-addr)
-        out (param-value-output computer (nth modes 2) out-addr)]
-    (if (compare-fn a b)
-      (-> computer
-          (update-memory out 1)
-          (advance-ip 4))
-      (-> computer
-          (update-memory out 0)
-          (advance-ip 4)))))
+        a (read-memory-with-mode computer (nth modes 0) a-addr)
+        b (read-memory-with-mode computer (nth modes 1) b-addr)
+        out (output-addr-with-mode computer (nth modes 2) out-addr)
+        value (if (compare-fn a b) 1 0)]
+    (-> computer
+        (update-memory out value)
+        (advance-ip 4))))
 
 (defn instr-less-than
   [computer modes]
@@ -155,7 +158,7 @@
 (defn instr-add-relative-base
   [computer modes]
   (let [[a-addr] (read-values computer 1)
-        a (param-value computer (nth modes 0) a-addr)]
+        a (read-memory-with-mode computer (nth modes 0) a-addr)]
     (-> computer
         (update-in [:rb] + a)
         (advance-ip 2))))
@@ -181,7 +184,7 @@
 (defn step-computer
   "Execute one step, returning a new computer state as output"
   [{:keys [memory ip] :as computer}]
-  (let [[opcode modes] (parse-opcode (nth memory ip))
+  (let [[opcode modes] (parse-opcode-memoized (nth memory ip))
         instr (op->instr opcode)]
     (instr computer modes)))
 
@@ -206,46 +209,25 @@
   ([computer inputs]
    (run-computer-until-output (update-in computer [:inputs] #(vec (concat %1 %2)) inputs))))
 
-(defn run-amps-once
-  "Takes a list of computers and list of inputs to the first computer as arguments.
-  Runs first computer until it outputs something, and passes it as input to the next computer.
-  Repeats until all computers have ran, returns new computer states."
-  [computers a-input]
-  (loop [new-amps [(run-computer-until-output (first computers) a-input)]
-         computers (rest computers)]
-    (if (empty? computers)
-      new-amps
-      (let [input (-> new-amps last :outputs)
-            new-c (run-computer-until-output (first computers) input)]
-        (recur (conj new-amps new-c)
-               (rest computers))))))
-
-(defn run-amps-feedback
-  "Takes a list of amplifier settings as input.
-  Runs computers as amplifiers until they halt, returns the last output from last amplifier."
-  [amp-settings]
-  (loop [computers (map make-amp (repeat computer) amp-settings)
-         a-input [0]
-         outputs []]
-    (let [new-computers (run-amps-once computers a-input)
-          new-a-input (-> new-computers last :outputs)]
-      (if (some :halt new-computers)
-        (last outputs)
-        (recur (map clear-output new-computers)
-               new-a-input
-               (concat outputs new-a-input))))))
-
 ;; Part 1
 
 (defn part1
   []
-  (run-computer (set-inputs initial-computer [1])))
+  (-> initial-computer
+      (set-inputs [1])
+      run-computer
+      :outputs
+      last))
 
 ;; Part 2
 
 (defn part2
   []
-  (run-computer (set-inputs initial-computer [2])))
+  (-> initial-computer
+      (set-inputs [2])
+      run-computer
+      :outputs
+      last))
 
 (defn main
   []
